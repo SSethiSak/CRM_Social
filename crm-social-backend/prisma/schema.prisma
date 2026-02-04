@@ -1,0 +1,212 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - represents the authenticated user
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?   // Hashed password
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  posts         Post[]
+  
+  @@map("users")
+}
+
+// Session model - for NextAuth session management
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+// Account model - stores social media platform connections
+model Account {
+  id                String    @id @default(cuid())
+  userId            String
+  platform          String    // 'facebook', 'instagram', 'linkedin'
+  platformAccountId String    // Platform's unique ID for this account
+  accountName       String    // Display name (Page name, @username, Company name)
+  accountType       String?   // 'page', 'profile', 'company', etc.
+  avatarUrl         String?
+  
+  // OAuth tokens (encrypted)
+  accessToken       String    @db.Text
+  refreshToken      String?   @db.Text
+  tokenType         String?   @default("Bearer")
+  expiresAt         DateTime?
+  scope             String?
+  
+  // Platform-specific data
+  platformData      Json?     // Store additional platform-specific info
+  
+  // Status tracking
+  isActive          Boolean   @default(true)
+  lastSyncedAt      DateTime?
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postResults       PostResult[]
+  
+  @@unique([userId, platform, platformAccountId])
+  @@index([userId])
+  @@index([platform])
+  @@map("accounts")
+}
+
+// Post model - represents content created by user
+model Post {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  // Content
+  content     String   @db.Text
+  imageUrl    String?
+  videoUrl    String?
+  mediaType   String?  // 'image', 'video', 'none'
+  
+  // Publishing details
+  platforms   String[] // ['facebook', 'instagram', 'linkedin']
+  status      String   @default("draft") // 'draft', 'publishing', 'published', 'failed', 'partial'
+  
+  // Scheduling (for future enhancement)
+  scheduledFor DateTime?
+  publishedAt  DateTime?
+  
+  // Metadata
+  metadata    Json?    // Store additional metadata
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postResults PostResult[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([publishedAt])
+  @@map("posts")
+}
+
+// PostResult model - tracks publishing status per platform
+model PostResult {
+  id              String   @id @default(cuid())
+  postId          String
+  accountId       String
+  platform        String   // 'facebook', 'instagram', 'linkedin'
+  
+  // Publishing status
+  status          String   @default("pending") // 'pending', 'publishing', 'success', 'failed'
+  
+  // Platform response data
+  platformPostId  String?  // ID of post on the platform
+  platformPostUrl String?  // Direct link to post
+  
+  // Error handling
+  errorMessage    String?  @db.Text
+  errorCode       String?
+  retryCount      Int      @default(0)
+  
+  // Engagement metrics (collected later)
+  likesCount      Int      @default(0)
+  commentsCount   Int      @default(0)
+  sharesCount     Int      @default(0)
+  reachCount      Int      @default(0)
+  impressionsCount Int     @default(0)
+  
+  // Metadata
+  platformData    Json?    // Store platform-specific response
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  publishedAt     DateTime?
+  
+  // Relations
+  post            Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  comments        Comment[]
+  
+  @@unique([postId, accountId])
+  @@index([postId])
+  @@index([platform])
+  @@index([status])
+  @@map("post_results")
+}
+
+// Comment model - stores comments/interactions from platforms
+model Comment {
+  id            String     @id @default(cuid())
+  postResultId  String
+  platform      String     // 'facebook', 'instagram', 'linkedin'
+  
+  // Comment details
+  platformCommentId String  // Platform's ID for this comment
+  commenterId       String  // Platform's user ID
+  commenterName     String
+  commenterUsername String?
+  commenterAvatar   String?
+  
+  // Content
+  text          String     @db.Text
+  
+  // Metadata
+  parentCommentId String?  // For threaded comments
+  isReply       Boolean    @default(false)
+  likesCount    Int        @default(0)
+  
+  // Status (for moderation - future)
+  isHidden      Boolean    @default(false)
+  isSpam        Boolean    @default(false)
+  
+  // Platform data
+  platformData  Json?
+  
+  // Timestamps
+  commentedAt   DateTime   // When comment was made on platform
+  createdAt     DateTime   @default(now()) // When we fetched it
+  updatedAt     DateTime   @updatedAt
+  
+  // Relations
+  postResult    PostResult @relation(fields: [postResultId], references: [id], onDelete: Cascade)
+  
+  @@unique([postResultId, platformCommentId])
+  @@index([postResultId])
+  @@index([platform])
+  @@map("comments")
+}
+
+// VerificationToken model - for email verification (NextAuth)
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}

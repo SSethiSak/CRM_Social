@@ -1,0 +1,16 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "env": {
+    "DATABASE_URL": "@database-url",
+    "NEXTAUTH_URL": "@nextauth-url",
+    "NEXTAUTH_SECRET": "@nextauth-secret",
+    "FACEBOOK_CLIENT_ID": "@facebook-client-id",
+    "FACEBOOK_CLIENT_SECRET": "@facebook-client-secret",
+    "LINKEDIN_CLIENT_ID": "@linkedin-client-id",
+    "LINKEDIN_CLIENT_SECRET": "@linkedin-client-secret",
+    "ENCRYPTION_KEY": "@encryption-key",
+    "CLOUDINARY_CLOUD_NAME": "@cloudinary-cloud-name",
+    "CLOUDINARY_API_KEY": "@cloudinary-api-key",
+    "CLOUDINARY_API_SECRET": "@cloudinary-api-secret"
+  }
+}
