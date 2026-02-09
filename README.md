@@ -52,27 +52,30 @@ CRM Social is a proof-of-concept social media management platform designed to st
 
 ### Core Features
 
-| Feature | Description |
-|---------|-------------|
+| Feature                       | Description                                              |
+| ----------------------------- | -------------------------------------------------------- |
 | **Multi-Platform Publishing** | Post to Facebook, Instagram, and LinkedIn simultaneously |
-| **OAuth Integration** | Secure authentication with social media platforms |
-| **Comment Collection** | Centralized view of comments from all platforms |
-| **Dashboard Analytics** | Track posts, comments, and connected accounts |
-| **Image Upload** | Support for JPG/PNG images up to 5MB |
-| **Real-time Status** | Live publishing status updates |
+| **OAuth Integration**         | Secure authentication with social media platforms        |
+| **Comment Collection**        | Centralized view of comments from all platforms          |
+| **Dashboard Analytics**       | Track posts, comments, and connected accounts            |
+| **Image Upload**              | Support for JPG/PNG images up to 5MB                     |
+| **Real-time Status**          | Live publishing status updates                           |
 
 ### User Authentication
+
 - Email/password login
 - JWT session management
 - Secure token storage
 
 ### Social Media Account Management
+
 - Connect Facebook Pages via OAuth 2.0
 - Link Instagram Business accounts
 - Connect LinkedIn Company Pages
 - View connection status and last activity
 
 ### Content Publishing
+
 - Rich text editor (up to 2,000 characters)
 - Single image attachment support
 - Platform selection checkboxes
@@ -80,6 +83,7 @@ CRM Social is a proof-of-concept social media management platform designed to st
 - Direct links to published posts
 
 ### Interaction Management
+
 - Fetch comments from all platforms
 - Centralized comment display
 - Manual refresh capability
@@ -91,33 +95,33 @@ CRM Social is a proof-of-concept social media management platform designed to st
 
 ### Frontend (`CRM_Social_Frontend/`)
 
-| Technology | Purpose |
-|------------|---------|
-| **React 18** | UI Framework |
-| **TypeScript** | Type Safety |
-| **Vite** | Build Tool |
-| **Tailwind CSS** | Styling |
-| **shadcn/ui** | UI Components |
+| Technology        | Purpose          |
+| ----------------- | ---------------- |
+| **React 18**      | UI Framework     |
+| **TypeScript**    | Type Safety      |
+| **Vite**          | Build Tool       |
+| **Tailwind CSS**  | Styling          |
+| **shadcn/ui**     | UI Components    |
 | **React Context** | State Management |
 
 ### Backend (`crm-social-backend/`)
 
-| Technology | Purpose |
-|------------|---------|
+| Technology     | Purpose             |
+| -------------- | ------------------- |
 | **Next.js 14** | API Routes & Server |
-| **TypeScript** | Type Safety |
-| **Prisma** | ORM |
-| **PostgreSQL** | Database |
-| **JWT (jose)** | Authentication |
-| **bcryptjs** | Password Hashing |
+| **TypeScript** | Type Safety         |
+| **Prisma**     | ORM                 |
+| **PostgreSQL** | Database            |
+| **JWT (jose)** | Authentication      |
+| **bcryptjs**   | Password Hashing    |
 
 ### External Services
 
-| Service | Purpose |
-|---------|---------|
-| **Meta Graph API** | Facebook & Instagram |
-| **LinkedIn API v2** | LinkedIn |
-| **Cloudinary** | Image Storage |
+| Service             | Purpose              |
+| ------------------- | -------------------- |
+| **Meta Graph API**  | Facebook & Instagram |
+| **LinkedIn API v2** | LinkedIn             |
+| **Cloudinary**      | Image Storage        |
 
 ---
 
@@ -276,42 +280,42 @@ VITE_FACEBOOK_APP_ID=your_facebook_app_id
 
 ### Authentication
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Endpoint             | Description       |
+| ------ | -------------------- | ----------------- |
 | `POST` | `/api/auth/register` | Register new user |
-| `POST` | `/api/auth/login` | Login user |
-| `GET` | `/api/auth/me` | Get current user |
+| `POST` | `/api/auth/login`    | Login user        |
+| `GET`  | `/api/auth/me`       | Get current user  |
 
 ### Social Accounts
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/accounts` | List connected accounts |
-| `POST` | `/api/accounts/facebook` | Connect Facebook Page |
-| `POST` | `/api/accounts/instagram` | Connect Instagram |
-| `POST` | `/api/accounts/linkedin` | Connect LinkedIn |
-| `DELETE` | `/api/accounts/:id` | Disconnect account |
+| Method   | Endpoint                  | Description             |
+| -------- | ------------------------- | ----------------------- |
+| `GET`    | `/api/accounts`           | List connected accounts |
+| `POST`   | `/api/accounts/facebook`  | Connect Facebook Page   |
+| `POST`   | `/api/accounts/instagram` | Connect Instagram       |
+| `POST`   | `/api/accounts/linkedin`  | Connect LinkedIn        |
+| `DELETE` | `/api/accounts/:id`       | Disconnect account      |
 
 ### Posts
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/posts` | List all posts |
-| `POST` | `/api/posts/create` | Create & publish post |
-| `GET` | `/api/posts/:id` | Get post details |
-| `GET` | `/api/posts/:id/comments` | Get post comments |
-| `POST` | `/api/posts/:id/comments` | Refresh comments |
+| Method | Endpoint                  | Description           |
+| ------ | ------------------------- | --------------------- |
+| `GET`  | `/api/posts`              | List all posts        |
+| `POST` | `/api/posts/create`       | Create & publish post |
+| `GET`  | `/api/posts/:id`          | Get post details      |
+| `GET`  | `/api/posts/:id/comments` | Get post comments     |
+| `POST` | `/api/posts/:id/comments` | Refresh comments      |
 
 ### Dashboard
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/dashboard/stats` | Get dashboard metrics |
+| Method | Endpoint               | Description           |
+| ------ | ---------------------- | --------------------- |
+| `GET`  | `/api/dashboard/stats` | Get dashboard metrics |
 
 ### Upload
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Endpoint      | Description  |
+| ------ | ------------- | ------------ |
 | `POST` | `/api/upload` | Upload image |
 
 ---
@@ -413,6 +417,7 @@ model Comment {
 ### Instagram Business Account Setup
 
 To connect Instagram, you must:
+
 1. Convert Instagram to a Business or Creator account
 2. Create a Facebook Page
 3. Link Instagram to the Facebook Page
@@ -425,18 +430,21 @@ To connect Instagram, you must:
 ### Manual Testing Checklist
 
 **Authentication:**
+
 - [ ] User can register
 - [ ] User can login
 - [ ] Session persists after refresh
 - [ ] User can logout
 
 **Account Connection:**
+
 - [ ] Facebook OAuth completes
 - [ ] Instagram accounts detected
 - [ ] LinkedIn OAuth completes
 - [ ] Accounts persist after reload
 
 **Publishing:**
+
 - [ ] Text-only post works
 - [ ] Image upload works
 - [ ] Multi-platform publishing works
@@ -444,6 +452,7 @@ To connect Instagram, you must:
 - [ ] Links to posts work
 
 **Comments:**
+
 - [ ] Comments fetch correctly
 - [ ] Refresh updates comments
 - [ ] Timestamps format correctly
@@ -476,20 +485,21 @@ vercel
 
 ## ⚠️ Known Limitations
 
-| Limitation | Description |
-|------------|-------------|
-| No Scheduling | Immediate posting only |
-| No Video | Image support only (JPG/PNG) |
-| Read-only Comments | Cannot reply or moderate |
-| Single User | No team collaboration |
-| 50 Comments Max | Per post limit |
-| Manual Refresh | No real-time updates |
+| Limitation         | Description                  |
+| ------------------ | ---------------------------- |
+| No Scheduling      | Immediate posting only       |
+| No Video           | Image support only (JPG/PNG) |
+| Read-only Comments | Cannot reply or moderate     |
+| Single User        | No team collaboration        |
+| 50 Comments Max    | Per post limit               |
+| Manual Refresh     | No real-time updates         |
 
 ---
 
 ## 🗺 Roadmap
 
 ### Phase 2 (Planned)
+
 - [ ] Content scheduling & calendar
 - [ ] Advanced analytics dashboard
 - [ ] Team collaboration features
@@ -497,6 +507,7 @@ vercel
 - [ ] Video upload support
 
 ### Phase 3 (Future)
+
 - [ ] TikTok integration
 - [ ] Twitter/X integration
 - [ ] AI content suggestions
@@ -532,3 +543,4 @@ For support, please open an issue on GitHub or contact the development team.
 **Built with ❤️ by the Development Team**
 
 </div>
+# CRM_Marketing
