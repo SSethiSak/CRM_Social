@@ -93,7 +93,7 @@ CRM Social is a proof-of-concept social media management platform designed to st
 
 ## 🛠 Tech Stack
 
-### Frontend (`CRM_Social_Frontend/`)
+### Frontend (`crm-social-frontend/`)
 
 | Technology        | Purpose          |
 | ----------------- | ---------------- |
@@ -129,7 +129,7 @@ CRM Social is a proof-of-concept social media management platform designed to st
 
 ```
 CRM_Social/
-├── CRM_Social_Frontend/          # React Frontend Application
+├── crm-social-frontend/          # React Frontend Application
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── auth/             # Login/Authentication
@@ -214,7 +214,7 @@ Backend will run on `http://localhost:3000`
 
 ```bash
 # Navigate to frontend (in new terminal)
-cd CRM_Social_Frontend
+cd crm-social-frontend
 
 # Install dependencies
 npm install
@@ -471,7 +471,7 @@ vercel
 ### Frontend (Vercel)
 
 ```bash
-cd CRM_Social_Frontend
+cd crm-social-frontend
 vercel
 ```
 
