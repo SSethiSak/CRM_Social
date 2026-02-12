@@ -9,7 +9,10 @@ const createPostSchema = z.object({
   content: z.string().min(1).max(5000),
   imageUrl: z.string().url().optional().nullable(),
   videoUrl: z.string().url().optional().nullable(),
-  platforms: z.array(z.enum(["facebook", "instagram", "linkedin"])).min(1),
+  platforms: z
+    .array(z.enum(["facebook", "instagram", "linkedin", "tiktok", "telegram"]))
+    .min(1),
+  accountIds: z.array(z.string()).optional(), // Optional: specific account IDs to post to
 });
 
 // POST /api/posts/create - Create and publish post
@@ -29,7 +32,8 @@ export async function POST(request: NextRequest) {
         imageUrl: validatedData.imageUrl || undefined,
         videoUrl: validatedData.videoUrl || undefined,
       },
-      validatedData.platforms as Platform[]
+      validatedData.platforms as Platform[],
+      validatedData.accountIds // Pass specific account IDs if provided
     );
 
     return NextResponse.json({

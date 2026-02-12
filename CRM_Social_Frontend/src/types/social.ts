@@ -1,4 +1,9 @@
-export type Platform = 'facebook' | 'instagram' | 'linkedin';
+export type Platform =
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "tiktok"
+  | "telegram";
 
 export interface ConnectedAccount {
   id: string;
@@ -16,16 +21,22 @@ export interface Post {
   platforms: Platform[];
   createdAt: Date;
   status: {
-    facebook?: 'pending' | 'success' | 'failed';
-    instagram?: 'pending' | 'success' | 'failed';
-    linkedin?: 'pending' | 'success' | 'failed';
+    facebook?: "pending" | "success" | "failed";
+    instagram?: "pending" | "success" | "failed";
+    linkedin?: "pending" | "success" | "failed";
+    tiktok?: "pending" | "success" | "failed";
+    telegram?: "pending" | "success" | "failed";
   };
   postUrls?: {
     facebook?: string;
     instagram?: string;
     linkedin?: string;
+    tiktok?: string;
+    telegram?: string;
   };
   commentCount: number;
+  likesCount: number;
+  sharesCount: number;
 }
 
 export interface Comment {
@@ -40,7 +51,7 @@ export interface Comment {
 
 export interface PublishingStatus {
   platform: Platform;
-  status: 'pending' | 'publishing' | 'success' | 'failed';
+  status: "pending" | "publishing" | "success" | "failed";
   postUrl?: string;
   error?: string;
 }

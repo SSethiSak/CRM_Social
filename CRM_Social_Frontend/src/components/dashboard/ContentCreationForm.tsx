@@ -17,41 +17,52 @@ import {
   AlertCircle,
   ExternalLink,
 } from "lucide-react";
-import type { Platform, PublishingStatus } from "@/types/social";
+import type {
+  Platform,
+  PublishingStatus,
+  ConnectedAccount,
+} from "@/types/social";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
 const MAX_CHARS = 2200; // Instagram max, Facebook allows more
 
 export function ContentCreationForm() {
-  const { connectedAccounts, createPost } = useApp();
+  const { connectedAccounts } = useApp();
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [publishingStatuses, setPublishingStatuses] = useState<
-    PublishingStatus[]
+    (PublishingStatus & { accountName?: string })[]
   >([]);
   const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const connectedPlatforms = connectedAccounts.filter((a) => a.isConnected);
+  const selectedAccounts = connectedAccounts.filter((a) =>
+    selectedAccountIds.includes(a.id)
+  );
+  const selectedPlatforms = [
+    ...new Set(selectedAccounts.map((a) => a.platform)),
+  ];
+
   const charCount = content.length;
   const isOverLimit = charCount > MAX_CHARS;
   const canPublish =
     content.trim() &&
-    selectedPlatforms.length > 0 &&
+    selectedAccountIds.length > 0 &&
     !isOverLimit &&
     !isPublishing;
 
-  const handlePlatformToggle = (platform: Platform) => {
-    setSelectedPlatforms((prev) =>
-      prev.includes(platform)
-        ? prev.filter((p) => p !== platform)
-        : [...prev, platform]
+  const handleAccountToggle = (accountId: string) => {
+    setSelectedAccountIds((prev) =>
+      prev.includes(accountId)
+        ? prev.filter((id) => id !== accountId)
+        : [...prev, accountId]
     );
   };
 
@@ -84,13 +95,12 @@ export function ContentCreationForm() {
     setShowResults(true);
     setError(null);
 
-    // Initialize publishing statuses
-    const initialStatuses: PublishingStatus[] = selectedPlatforms.map(
-      (platform) => ({
-        platform,
-        status: "pending",
-      })
-    );
+    // Initialize publishing statuses with account names
+    const initialStatuses = selectedAccounts.map((account) => ({
+      platform: account.platform,
+      accountName: account.accountName,
+      status: "pending" as const,
+    }));
     setPublishingStatuses(initialStatuses);
 
     try {
@@ -114,27 +124,27 @@ export function ContentCreationForm() {
         }
       }
 
-      // Call the real API to create post
+      // Call the real API to create post with specific account IDs
       const response = await api.createPost(
         content,
         selectedPlatforms,
-        uploadedImageUrl || undefined
+        uploadedImageUrl || undefined,
+        selectedAccountIds
       );
 
       // Update statuses based on API response
-      const finalStatuses: PublishingStatus[] = response.results.map(
-        (result: any) => ({
+      const finalStatuses: (PublishingStatus & { accountName?: string })[] =
+        response.results.map((result: any) => ({
           platform: result.platform as Platform,
-          status: result.success ? "success" : "failed",
+          accountName: result.accountName,
+          status: (result.success ? "success" : "failed") as
+            | "success"
+            | "failed",
           postUrl: result.postUrl,
           error: result.error,
-        })
-      );
+        }));
 
       setPublishingStatuses(finalStatuses);
-
-      // Also update context
-      await createPost(content, uploadedImageUrl, selectedPlatforms);
     } catch (err: any) {
       console.error("Publish error:", err);
       setError(err.message || "Failed to publish post");
@@ -143,7 +153,7 @@ export function ContentCreationForm() {
       setPublishingStatuses((prev) =>
         prev.map((s) => ({
           ...s,
-          status: "failed",
+          status: "failed" as const,
           error: err.message || "Failed to publish",
         }))
       );
@@ -156,7 +166,7 @@ export function ContentCreationForm() {
     setContent("");
     setImageUrl(null);
     setImageFile(null);
-    setSelectedPlatforms([]);
+    setSelectedAccountIds([]);
     setPublishingStatuses([]);
     setShowResults(false);
     setError(null);
@@ -184,7 +194,7 @@ export function ContentCreationForm() {
           </h1>
           <p className="text-slate-400">
             {isPublishing
-              ? "Publishing your content to selected platforms..."
+              ? "Publishing your content to selected accounts..."
               : "Publishing complete!"}
           </p>
         </div>
@@ -198,9 +208,9 @@ export function ContentCreationForm() {
 
         <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm max-w-2xl">
           <CardContent className="p-6 space-y-4">
-            {publishingStatuses.map((status) => (
+            {publishingStatuses.map((status, index) => (
               <div
-                key={status.platform}
+                key={`${status.platform}-${status.accountName}-${index}`}
                 className={cn(
                   "flex items-center justify-between p-4 rounded-lg border transition-all duration-300",
                   status.status === "success" &&
@@ -219,17 +229,14 @@ export function ContentCreationForm() {
                   </div>
                   <div>
                     <p className="font-medium text-white">
-                      {getPlatformName(status.platform)}
+                      {status.accountName || getPlatformName(status.platform)}
                     </p>
                     <p
                       className={cn(
                         "text-sm",
                         status.status === "success" && "text-green-400",
                         status.status === "failed" && "text-red-400",
-                        status.status === "publishing" &&
-                          (isUploading
-                            ? "Uploading image..."
-                            : "Publishing..."),
+                        status.status === "publishing" && "text-cyan-400",
                         status.status === "pending" && "text-slate-500"
                       )}
                     >
@@ -272,6 +279,15 @@ export function ContentCreationForm() {
       </div>
     );
   }
+
+  // Group accounts by platform for better organization
+  const accountsByPlatform = connectedPlatforms.reduce((acc, account) => {
+    if (!acc[account.platform]) {
+      acc[account.platform] = [];
+    }
+    acc[account.platform].push(account);
+    return acc;
+  }, {} as Record<Platform, ConnectedAccount[]>);
 
   return (
     <div className="space-y-8">
@@ -372,54 +388,75 @@ export function ContentCreationForm() {
           </Card>
         </div>
 
-        {/* Platform Selection */}
+        {/* Account Selection */}
         <div className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-white text-lg">
-                Target Platforms
+                Select Accounts
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               {connectedPlatforms.length === 0 ? (
                 <p className="text-slate-500 text-sm text-center py-4">
-                  No platforms connected. Connect accounts to start publishing.
+                  No accounts connected. Connect accounts to start publishing.
                 </p>
               ) : (
-                connectedPlatforms.map((account) => (
-                  <label
-                    key={account.id}
-                    className={cn(
-                      "flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all duration-200",
-                      selectedPlatforms.includes(account.platform)
-                        ? "bg-slate-800/50 border-blue-500/50"
-                        : "bg-slate-800/20 border-slate-700/50 hover:border-slate-600"
-                    )}
-                  >
-                    <Checkbox
-                      checked={selectedPlatforms.includes(account.platform)}
-                      onCheckedChange={() =>
-                        handlePlatformToggle(account.platform)
-                      }
-                      className="border-slate-600 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                    />
-                    <PlatformIcon platform={account.platform} size={20} />
-                    <div className="flex-1">
-                      <span className="text-white block">
-                        {account.accountName}
-                      </span>
-                      <span className="text-slate-500 text-xs">
-                        {getPlatformName(account.platform)}
-                      </span>
+                Object.entries(accountsByPlatform).map(
+                  ([platform, accounts]) => (
+                    <div key={platform} className="space-y-2">
+                      {/* Platform header */}
+                      <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
+                        <PlatformIcon
+                          platform={platform as Platform}
+                          size={16}
+                        />
+                        {getPlatformName(platform as Platform)}
+                        {accounts.length > 1 && (
+                          <span className="text-slate-500">
+                            ({accounts.length})
+                          </span>
+                        )}
+                      </div>
+                      {/* Account list */}
+                      {accounts.map((account) => (
+                        <label
+                          key={account.id}
+                          className={cn(
+                            "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200 ml-2",
+                            selectedAccountIds.includes(account.id)
+                              ? "bg-slate-800/50 border-blue-500/50"
+                              : "bg-slate-800/20 border-slate-700/50 hover:border-slate-600"
+                          )}
+                        >
+                          <Checkbox
+                            checked={selectedAccountIds.includes(account.id)}
+                            onCheckedChange={() =>
+                              handleAccountToggle(account.id)
+                            }
+                            className="border-slate-600 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                          />
+                          {account.avatar && (
+                            <img
+                              src={account.avatar}
+                              alt={account.accountName}
+                              className="w-6 h-6 rounded-full"
+                            />
+                          )}
+                          <span className="text-white text-sm flex-1 truncate">
+                            {account.accountName}
+                          </span>
+                          <div
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{
+                              backgroundColor: platformColors[account.platform],
+                            }}
+                          />
+                        </label>
+                      ))}
                     </div>
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor: platformColors[account.platform],
-                      }}
-                    />
-                  </label>
-                ))
+                  )
+                )
               )}
             </CardContent>
           </Card>
@@ -431,8 +468,8 @@ export function ContentCreationForm() {
             className="w-full h-12 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-medium shadow-lg shadow-blue-500/25 border-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5 mr-2" />
-            Publish to {selectedPlatforms.length} Platform
-            {selectedPlatforms.length !== 1 ? "s" : ""}
+            Publish to {selectedAccountIds.length} Account
+            {selectedAccountIds.length !== 1 ? "s" : ""}
           </Button>
 
           {isOverLimit && (
@@ -441,11 +478,12 @@ export function ContentCreationForm() {
             </p>
           )}
 
-          {selectedPlatforms.includes("instagram") && !imageUrl && (
-            <p className="text-yellow-400 text-sm text-center">
-              ⚠️ Instagram posts require an image
-            </p>
-          )}
+          {selectedAccounts.some((a) => a.platform === "instagram") &&
+            !imageUrl && (
+              <p className="text-yellow-400 text-sm text-center">
+                ⚠️ Instagram posts require an image
+              </p>
+            )}
         </div>
       </div>
     </div>

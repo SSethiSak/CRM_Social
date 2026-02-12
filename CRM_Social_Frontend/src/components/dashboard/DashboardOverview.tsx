@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { Link2, FileText, MessageSquare, TrendingUp, Activity } from 'lucide-react';
+import { Link2, FileText, MessageSquare, TrendingUp, Activity, Heart, Share2, RefreshCw, Loader2 } from 'lucide-react';
 import { PlatformIcon, platformGlowColors } from '@/components/shared/PlatformIcon';
 import type { Platform } from '@/types/social';
 
@@ -35,7 +37,8 @@ function MetricCard({ title, value, subtitle, icon, glowColor = 'shadow-blue-500
 }
 
 export function DashboardOverview() {
-  const { connectedAccounts, posts, comments } = useApp();
+  const { connectedAccounts, posts, comments, refreshComments } = useApp();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const connectedCount = connectedAccounts.filter(a => a.isConnected).length;
   const totalComments = comments.length;
@@ -43,6 +46,16 @@ export function DashboardOverview() {
   const successfulPosts = posts.filter(p => 
     Object.values(p.status).some(s => s === 'success')
   ).length;
+
+  const totalLikes = posts.reduce((sum, p) => sum + (p.likesCount || 0), 0);
+  const totalShares = posts.reduce((sum, p) => sum + (p.sharesCount || 0), 0);
+  const totalEngagement = totalLikes + totalComments + totalShares;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshComments();
+    setIsRefreshing(false);
+  };
 
   const recentActivity = [
     { action: 'Post published', platform: 'facebook' as Platform, time: '2h ago' },
@@ -54,17 +67,32 @@ export function DashboardOverview() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-          Dashboard Overview
-        </h1>
-        <p className="text-slate-400">
-          Monitor your social media presence across all platforms
-        </p>
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            Dashboard Overview
+          </h1>
+          <p className="text-slate-400">
+            Monitor your social media presence across all platforms
+          </p>
+        </div>
+        <Button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          variant="outline"
+          className="bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700/50 hover:text-white"
+        >
+          {isRefreshing ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4 mr-2" />
+          )}
+          Refresh Engagement
+        </Button>
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <MetricCard
           title="Connected Accounts"
           value={`${connectedCount}/${connectedAccounts.length}`}
@@ -80,16 +108,23 @@ export function DashboardOverview() {
           glowColor="shadow-xl shadow-cyan-500/10"
         />
         <MetricCard
-          title="Comments Collected"
+          title="Reactions"
+          value={totalLikes}
+          subtitle="Likes & reactions"
+          icon={<Heart className="w-5 h-5" />}
+          glowColor="shadow-xl shadow-pink-500/10"
+        />
+        <MetricCard
+          title="Comments"
           value={totalComments}
           subtitle="Across all platforms"
           icon={<MessageSquare className="w-5 h-5" />}
           glowColor="shadow-xl shadow-purple-500/10"
         />
         <MetricCard
-          title="Engagement Rate"
-          value="12.4%"
-          subtitle="+2.3% from last week"
+          title="Total Engagement"
+          value={totalEngagement}
+          subtitle={`${totalLikes} reactions · ${totalShares} shares`}
           icon={<TrendingUp className="w-5 h-5" />}
           glowColor="shadow-xl shadow-green-500/10"
         />

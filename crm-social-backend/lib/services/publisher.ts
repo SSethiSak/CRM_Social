@@ -1,6 +1,7 @@
 import { Platform, PostContent, PublishResult } from "../platforms/types";
 import { FacebookService } from "../platforms/facebook";
 import { LinkedInService } from "../platforms/linkedin";
+import { TelegramService } from "../platforms/telegram";
 import prisma from "../prisma";
 
 export class PublisherService {
@@ -10,7 +11,8 @@ export class PublisherService {
   static async publishToMultiplePlatforms(
     userId: string,
     content: PostContent,
-    platforms: Platform[]
+    platforms: Platform[],
+    accountIds?: string[] // Optional: specific account IDs to post to
   ) {
     // Create post record
     const post = await prisma.post.create({
@@ -30,11 +32,15 @@ export class PublisherService {
     });
 
     // Get user's connected accounts for selected platforms
+    // If accountIds provided, filter by those specific accounts
     const accounts = await prisma.account.findMany({
       where: {
         userId,
         platform: { in: platforms },
         isActive: true,
+        ...(accountIds && accountIds.length > 0
+          ? { id: { in: accountIds } }
+          : {}),
       },
     });
 
@@ -136,6 +142,30 @@ export class PublisherService {
             account.accessToken,
             content
           );
+          break;
+
+        case "telegram":
+          result = await TelegramService.postToChannel(
+            account.accessToken,
+            account.platformAccountId,
+            content
+          );
+          break;
+
+        case "tiktok":
+          // TikTok requires video - skip if no video provided
+          if (!content.videoUrl) {
+            result = {
+              success: false,
+              error: "TikTok requires a video to post",
+            };
+          } else {
+            // TikTok posting not fully implemented yet
+            result = {
+              success: false,
+              error: "TikTok posting requires API approval",
+            };
+          }
           break;
 
         default:

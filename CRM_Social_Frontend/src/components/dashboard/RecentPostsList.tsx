@@ -1,12 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
 import { PlatformIcon } from '@/components/shared/PlatformIcon';
 import { formatRelativeTime, truncateText } from '@/lib/formatters';
-import { FileText, MessageSquare, ExternalLink, ChevronRight, ArrowLeft } from 'lucide-react';
+import { FileText, MessageSquare, ExternalLink, ChevronRight, ArrowLeft, Heart, Share2, Loader2 } from 'lucide-react';
 import type { Post, Comment } from '@/types/social';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import api from '@/lib/api';
+
+interface Reaction {
+  id: string;
+  name: string;
+  type: string;
+  avatar: string | null;
+  platform: string;
+}
+
+interface ShareDetail {
+  id: string;
+  name: string;
+  avatar: string | null;
+  sharedAt: string;
+  platform: string;
+}
 
 interface PostDetailViewProps {
   post: Post;
@@ -14,8 +32,43 @@ interface PostDetailViewProps {
   onBack: () => void;
 }
 
+const reactionEmojis: Record<string, string> = {
+  LIKE: '👍',
+  LOVE: '❤️',
+  HAHA: '😂',
+  WOW: '😮',
+  SAD: '😢',
+  ANGRY: '😠',
+};
+
 function PostDetailView({ post, comments, onBack }: PostDetailViewProps) {
   const postComments = comments.filter(c => c.postId === post.id);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [shares, setShares] = useState<ShareDetail[]>([]);
+  const [totalReactions, setTotalReactions] = useState(0);
+  const [totalShares, setTotalShares] = useState(0);
+  const [isLoadingEngagement, setIsLoadingEngagement] = useState(false);
+  const [engagementLoaded, setEngagementLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadEngagement = async () => {
+      setIsLoadingEngagement(true);
+      try {
+        const response = await api.getPostEngagement(post.id);
+        setReactions(response.engagement.reactions);
+        setShares(response.engagement.shares);
+        setTotalReactions(response.engagement.totalReactions);
+        setTotalShares(response.engagement.totalShares);
+        setEngagementLoaded(true);
+      } catch (e) {
+        console.log('Failed to load engagement details:', e);
+      } finally {
+        setIsLoadingEngagement(false);
+      }
+    };
+
+    loadEngagement();
+  }, [post.id]);
 
   return (
     <div className="space-y-6">
@@ -51,9 +104,18 @@ function PostDetailView({ post, comments, onBack }: PostDetailViewProps) {
             <span className="text-slate-500 text-sm">
               {formatRelativeTime(post.createdAt)}
             </span>
-            <span className="text-slate-500 text-sm">
-              {postComments.length} comments
-            </span>
+            <div className="flex items-center gap-1 text-pink-400 text-sm">
+              <Heart className="w-4 h-4" />
+              {engagementLoaded ? totalReactions : post.likesCount}
+            </div>
+            <div className="flex items-center gap-1 text-slate-400 text-sm">
+              <MessageSquare className="w-4 h-4" />
+              {postComments.length}
+            </div>
+            <div className="flex items-center gap-1 text-blue-400 text-sm">
+              <Share2 className="w-4 h-4" />
+              {engagementLoaded ? totalShares : post.sharesCount}
+            </div>
           </div>
 
           {/* Post URLs */}
@@ -77,6 +139,113 @@ function PostDetailView({ post, comments, onBack }: PostDetailViewProps) {
         </CardContent>
       </Card>
 
+      {/* Reactions Section */}
+      <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
+        <CardHeader className="border-b border-slate-800/50">
+          <CardTitle className="text-white flex items-center gap-2">
+            <Heart className="w-5 h-5 text-pink-400" />
+            Reactions
+            <span className="text-sm font-normal text-slate-500 ml-2">
+              ({engagementLoaded ? totalReactions : post.likesCount} total)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoadingEngagement ? (
+            <div className="p-8 flex items-center justify-center text-slate-500">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              Loading reactions...
+            </div>
+          ) : reactions.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">
+              No reactions on this post yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-800/50">
+              {reactions.map((reaction, index) => (
+                <div
+                  key={`${reaction.id}-${index}`}
+                  className="flex items-center gap-3 p-4 hover:bg-slate-800/20 transition-colors"
+                >
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={reaction.avatar || undefined} alt={reaction.name} />
+                    <AvatarFallback className="bg-slate-700 text-white">
+                      {reaction.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-white">{reaction.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg" title={reaction.type}>
+                      {reactionEmojis[reaction.type] || '👍'}
+                    </span>
+                    <span className="text-xs text-slate-500 capitalize">
+                      {reaction.type.toLowerCase()}
+                    </span>
+                  </div>
+                  <div className="p-1 rounded bg-slate-800/50">
+                    <PlatformIcon platform={reaction.platform as any} size={14} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Shares Section */}
+      <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
+        <CardHeader className="border-b border-slate-800/50">
+          <CardTitle className="text-white flex items-center gap-2">
+            <Share2 className="w-5 h-5 text-blue-400" />
+            Shares
+            <span className="text-sm font-normal text-slate-500 ml-2">
+              ({engagementLoaded ? totalShares : post.sharesCount} total)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoadingEngagement ? (
+            <div className="p-8 flex items-center justify-center text-slate-500">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              Loading shares...
+            </div>
+          ) : shares.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">
+              No shares on this post yet.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-800/50">
+              {shares.map((share, index) => (
+                <div
+                  key={`${share.id}-${index}`}
+                  className="flex items-center gap-3 p-4 hover:bg-slate-800/20 transition-colors"
+                >
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={share.avatar || undefined} alt={share.name} />
+                    <AvatarFallback className="bg-slate-700 text-white">
+                      {share.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-white">{share.name}</span>
+                  </div>
+                  {share.sharedAt && (
+                    <span className="text-xs text-slate-500">
+                      {formatRelativeTime(new Date(share.sharedAt))}
+                    </span>
+                  )}
+                  <div className="p-1 rounded bg-slate-800/50">
+                    <PlatformIcon platform={share.platform as any} size={14} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Comments Section */}
       <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
         <CardHeader className="border-b border-slate-800/50">
@@ -94,13 +263,12 @@ function PostDetailView({ post, comments, onBack }: PostDetailViewProps) {
             <div className="divide-y divide-slate-800/50">
               {postComments.map((comment) => (
                 <div key={comment.id} className="flex items-start gap-4 p-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-medium overflow-hidden">
-                    {comment.commenterAvatar ? (
-                      <img src={comment.commenterAvatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      comment.commenterName.charAt(0).toUpperCase()
-                    )}
-                  </div>
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={comment.commenterAvatar} alt={comment.commenterName} />
+                    <AvatarFallback className="bg-slate-700 text-white">
+                      {comment.commenterName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-white">{comment.commenterName}</span>
@@ -224,10 +392,22 @@ export function RecentPostsList() {
                           </span>
                         ))}
 
+                        {/* Likes count */}
+                        <div className="flex items-center gap-1 text-pink-400 text-sm">
+                          <Heart className="w-4 h-4" />
+                          {post.likesCount}
+                        </div>
+
                         {/* Comments count */}
                         <div className="flex items-center gap-1 text-slate-500 text-sm">
                           <MessageSquare className="w-4 h-4" />
                           {postCommentCount}
+                        </div>
+
+                        {/* Shares count */}
+                        <div className="flex items-center gap-1 text-blue-400 text-sm">
+                          <Share2 className="w-4 h-4" />
+                          {post.sharesCount}
                         </div>
 
                         {/* Timestamp */}

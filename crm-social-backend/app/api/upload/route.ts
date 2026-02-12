@@ -2,17 +2,41 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/utils/session";
 import { v2 as cloudinary } from "cloudinary";
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Check if Cloudinary is configured
+const isCloudinaryConfigured = () => {
+  return (
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET &&
+    !process.env.CLOUDINARY_API_KEY.includes("your-")
+  );
+};
+
+// Configure Cloudinary only if credentials are provided
+if (isCloudinaryConfigured()) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
 // POST /api/upload - Upload image to Cloudinary
 export async function POST(request: NextRequest) {
   try {
     await requireAuth();
+
+    // Check if Cloudinary is configured
+    if (!isCloudinaryConfigured()) {
+      return NextResponse.json(
+        {
+          error:
+            "Image upload not configured. Please set up Cloudinary credentials or post without images.",
+          notConfigured: true,
+        },
+        { status: 503 }
+      );
+    }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;

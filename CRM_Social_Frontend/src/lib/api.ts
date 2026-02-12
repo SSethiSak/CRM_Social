@@ -115,12 +115,46 @@ class ApiService {
     );
   }
 
-  async connectLinkedIn(accessToken: string) {
+  async getLinkedInAuthUrl() {
+    return this.request<{ authUrl: string; state: string }>(
+      "/api/accounts/linkedin"
+    );
+  }
+
+  async connectLinkedIn(codeOrToken: string, isCode: boolean = false) {
     return this.request<{ message: string; accounts: any[] }>(
       "/api/accounts/linkedin",
       {
         method: "POST",
-        body: JSON.stringify({ accessToken }),
+        body: JSON.stringify(
+          isCode ? { code: codeOrToken } : { accessToken: codeOrToken }
+        ),
+      }
+    );
+  }
+
+  async getTikTokAuthUrl() {
+    return this.request<{ authUrl: string; state: string }>(
+      "/api/accounts/tiktok"
+    );
+  }
+
+  async connectTikTok(code: string, redirectUri?: string) {
+    return this.request<{ message: string; account: any }>(
+      "/api/accounts/tiktok",
+      {
+        method: "POST",
+        body: JSON.stringify({ code, redirectUri }),
+      }
+    );
+  }
+
+  async connectTelegram(botToken: string, channelId: string) {
+    return this.request<{ message: string; account: any }>(
+      "/api/accounts/telegram",
+      {
+        method: "POST",
+        body: JSON.stringify({ botToken, channelId }),
       }
     );
   }
@@ -138,12 +172,17 @@ class ApiService {
     );
   }
 
-  async createPost(content: string, platforms: string[], imageUrl?: string) {
+  async createPost(
+    content: string,
+    platforms: string[],
+    imageUrl?: string,
+    accountIds?: string[]
+  ) {
     return this.request<{ message: string; postId: string; results: any[] }>(
       "/api/posts/create",
       {
         method: "POST",
-        body: JSON.stringify({ content, platforms, imageUrl }),
+        body: JSON.stringify({ content, platforms, imageUrl, accountIds }),
       }
     );
   }
@@ -163,6 +202,26 @@ class ApiService {
         method: "POST",
       }
     );
+  }
+
+  async refreshPostMetrics(postId: string) {
+    return this.request<{ message: string; results: any[] }>(
+      `/api/posts/${postId}/metrics`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async getPostEngagement(postId: string) {
+    return this.request<{
+      engagement: {
+        reactions: { id: string; name: string; type: string; avatar: string | null; platform: string }[];
+        shares: { id: string; name: string; avatar: string | null; sharedAt: string; platform: string }[];
+        totalReactions: number;
+        totalShares: number;
+      };
+    }>(`/api/posts/${postId}/engagement`);
   }
 
   // Dashboard endpoints

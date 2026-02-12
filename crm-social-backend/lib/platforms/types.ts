@@ -1,4 +1,9 @@
-export type Platform = "facebook" | "instagram" | "linkedin";
+export type Platform =
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "tiktok"
+  | "telegram";
 
 export interface PlatformAccount {
   id: string;
@@ -63,4 +68,27 @@ export interface LinkedInOrganization {
   id: string;
   name: string;
   avatarUrl?: string;
+}
+
+export interface TikTokAccount {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+}
+
+export interface TikTokVideoInfo {
+  videoId: string;
+  shareUrl: string;
+  embedLink?: string;
+}
+
+export interface TelegramChannel {
+  id: string;
+  title: string;
+  username?: string;
+  type: string;
 }

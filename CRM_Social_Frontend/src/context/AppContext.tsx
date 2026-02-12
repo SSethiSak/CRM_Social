@@ -5,6 +5,7 @@ import React, {
   useCallback,
   ReactNode,
   useEffect,
+  useRef,
 } from "react";
 import type {
   User,
@@ -14,7 +15,11 @@ import type {
   Platform,
 } from "@/types/social";
 import api from "@/lib/api";
-import { initFacebookSDK, loginWithFacebook } from "@/lib/facebook";
+import {
+  initFacebookSDK,
+  loginWithFacebook,
+  isFacebookSDKLoaded,
+} from "@/lib/facebook";
 
 interface AppState {
   user: User | null;
@@ -56,6 +61,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Ref to prevent OAuth callback from running twice
+  const oauthProcessedRef = useRef(false);
+
+  // Handle TikTok OAuth callback
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      // Prevent duplicate processing (React Strict Mode runs effects twice)
+      if (oauthProcessedRef.current) {
+        return;
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      const platform = urlParams.get("platform");
+      const error = urlParams.get("error");
+
+      if (code && platform) {
+        // Mark as processed immediately to prevent duplicate calls
+        oauthProcessedRef.current = true;
+
+        // Clear URL params immediately
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+
+        try {
+          console.log(`Processing ${platform} OAuth callback...`);
+          if (platform === "tiktok") {
+            await api.connectTikTok(code);
+          } else if (platform === "linkedin") {
+            await api.connectLinkedIn(code, true);
+          }
+          console.log(`${platform} connected successfully!`);
+          // Reload accounts
+          await loadAccounts();
+        } catch (err) {
+          console.error(`${platform} connection failed:`, err);
+        }
+      } else if (platform && error) {
+        oauthProcessedRef.current = true;
+        console.error(`${platform} OAuth error:`, error);
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+      }
+    };
+
+    handleOAuthCallback();
+  }, []);
 
   // Initialize Facebook SDK and check auth status on mount
   useEffect(() => {
@@ -109,12 +168,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })
       );
 
-      // Ensure all platforms are represented
-      const platforms: Platform[] = ["facebook", "instagram", "linkedin"];
-      const accountsWithAllPlatforms = platforms.map((platform) => {
-        const existing = accounts.find((a) => a.platform === platform);
-        if (existing) return existing;
-        return {
+      // Get platforms that have at least one connected account
+      const connectedPlatforms = new Set(accounts.map((a) => a.platform));
+
+      // Add placeholder for platforms without any connected accounts
+      const platforms: Platform[] = [
+        "facebook",
+        "instagram",
+        "linkedin",
+        "tiktok",
+        "telegram",
+      ];
+
+      const placeholders = platforms
+        .filter((platform) => !connectedPlatforms.has(platform))
+        .map((platform) => ({
           id: `placeholder-${platform}`,
           platform,
           accountName:
@@ -122,13 +190,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
               ? "Facebook Page"
               : platform === "instagram"
               ? "@instagram"
-              : "LinkedIn Company",
+              : platform === "tiktok"
+              ? "@tiktok"
+              : platform === "telegram"
+              ? "Telegram Channel"
+              : "LinkedIn",
           isConnected: false,
           lastActivity: null,
-        };
-      });
+        }));
 
-      setConnectedAccounts(accountsWithAllPlatforms);
+      // Return all connected accounts + placeholders for unconnected platforms
+      setConnectedAccounts([...accounts, ...placeholders]);
     } catch (error) {
       console.error("Failed to load accounts:", error);
     }
@@ -161,6 +233,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         commentCount:
           post.postResults?.reduce(
             (sum: number, pr: any) => sum + (pr.commentsCount || 0),
+            0
+          ) || 0,
+        likesCount:
+          post.postResults?.reduce(
+            (sum: number, pr: any) => sum + (pr.likesCount || 0),
+            0
+          ) || 0,
+        sharesCount:
+          post.postResults?.reduce(
+            (sum: number, pr: any) => sum + (pr.sharesCount || 0),
             0
           ) || 0,
       }));
@@ -225,6 +307,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (platform: Platform): Promise<void> => {
       try {
         if (platform === "facebook" || platform === "instagram") {
+          // Check if Facebook SDK is loaded
+          if (!isFacebookSDKLoaded()) {
+            throw new Error(
+              "Facebook SDK not available. Please disable your ad blocker and refresh the page."
+            );
+          }
+
           // Use Facebook SDK for OAuth
           const fbResponse = await loginWithFacebook();
 
@@ -243,11 +332,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           // Reload accounts
           await loadAccounts();
+        } else if (platform === "tiktok") {
+          // Get TikTok auth URL and redirect
+          const { authUrl } = await api.getTikTokAuthUrl();
+          window.location.href = authUrl;
         } else if (platform === "linkedin") {
-          // For LinkedIn, we'd need OAuth flow - for now show alert
-          alert(
-            "LinkedIn OAuth not yet implemented. Please add your LinkedIn access token manually."
-          );
+          // Get LinkedIn auth URL and redirect
+          const { authUrl } = await api.getLinkedInAuthUrl();
+          window.location.href = authUrl;
         }
       } catch (error) {
         console.error(`Failed to connect ${platform}:`, error);
@@ -294,9 +386,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return acc;
           }, {}),
           commentCount: 0,
+          likesCount: 0,
+          sharesCount: 0,
         };
 
         setPosts((prev) => [newPost, ...prev]);
+
+        // Auto-refresh engagement after a delay (Facebook API needs time)
+        setTimeout(async () => {
+          try {
+            await api.refreshPostMetrics(newPost.id);
+            await api.refreshPostComments(newPost.id);
+            await loadPosts();
+          } catch (e) {
+            console.log("Auto-refresh after post failed:", e);
+          }
+        }, 30000); // 30 seconds delay
+
+        // Second refresh after 2 minutes for slower engagement
+        setTimeout(async () => {
+          try {
+            await api.refreshPostMetrics(newPost.id);
+            await api.refreshPostComments(newPost.id);
+            await loadPosts();
+          } catch (e) {
+            console.log("Auto-refresh after post failed:", e);
+          }
+        }, 120000); // 2 minutes delay
+
         return newPost;
       } catch (error) {
         console.error("Failed to create post:", error);
@@ -308,12 +425,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshComments = useCallback(async (): Promise<void> => {
     try {
-      // Refresh comments for all recent posts
+      // Refresh comments and metrics for all recent posts
       const allComments: Comment[] = [];
 
       for (const post of posts.slice(0, 5)) {
         try {
-          await api.refreshPostComments(post.id);
+          // Refresh both metrics and comments from platforms
+          await Promise.all([
+            api.refreshPostMetrics(post.id),
+            api.refreshPostComments(post.id),
+          ]);
           const response = await api.getPostComments(post.id);
 
           const postComments: Comment[] = response.comments.map((c: any) => ({
@@ -333,6 +454,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       setComments(allComments);
+      // Also reload posts to update engagement counts in the UI
+      await loadPosts();
     } catch (error) {
       console.error("Failed to refresh comments:", error);
     }

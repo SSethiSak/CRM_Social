@@ -9,7 +9,86 @@ import { decryptToken } from "../utils/encryption";
 
 const LINKEDIN_API_URL = "https://api.linkedin.com/v2";
 
+export interface LinkedInProfile {
+  id: string;
+  name: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
 export class LinkedInService {
+  /**
+   * Get user's LinkedIn profile using OpenID Connect
+   */
+  static async getUserProfile(
+    userAccessToken: string
+  ): Promise<LinkedInProfile> {
+    try {
+      console.log(
+        "Fetching LinkedIn profile with token:",
+        userAccessToken.substring(0, 20) + "..."
+      );
+
+      // Try the OpenID Connect userinfo endpoint first
+      const response = await axios.get("https://api.linkedin.com/v2/userinfo", {
+        headers: {
+          Authorization: `Bearer ${userAccessToken}`,
+        },
+      });
+
+      console.log("LinkedIn userinfo response:", response.data);
+
+      return {
+        id: response.data.sub,
+        name:
+          response.data.name ||
+          response.data.given_name + " " + response.data.family_name,
+        email: response.data.email,
+        avatarUrl: response.data.picture,
+      };
+    } catch (error: any) {
+      console.error(
+        "Error fetching LinkedIn profile from userinfo:",
+        error.response?.status,
+        error.response?.data || error.message
+      );
+
+      // Fallback: Try the /me endpoint
+      try {
+        console.log("Trying fallback /me endpoint...");
+        const meResponse = await axios.get("https://api.linkedin.com/v2/me", {
+          headers: {
+            Authorization: `Bearer ${userAccessToken}`,
+            "X-Restli-Protocol-Version": "2.0.0",
+          },
+          params: {
+            projection:
+              "(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))",
+          },
+        });
+
+        console.log("LinkedIn /me response:", meResponse.data);
+
+        const profilePicture =
+          meResponse.data.profilePicture?.["displayImage~"]?.elements?.[0]
+            ?.identifiers?.[0]?.identifier;
+
+        return {
+          id: meResponse.data.id,
+          name: `${meResponse.data.localizedFirstName} ${meResponse.data.localizedLastName}`,
+          avatarUrl: profilePicture,
+        };
+      } catch (fallbackError: any) {
+        console.error(
+          "Error fetching LinkedIn profile from /me:",
+          fallbackError.response?.status,
+          fallbackError.response?.data || fallbackError.message
+        );
+        throw new Error("Failed to fetch LinkedIn profile");
+      }
+    }
+  }
+
   /**
    * Get user's LinkedIn organizations (company pages)
    */
