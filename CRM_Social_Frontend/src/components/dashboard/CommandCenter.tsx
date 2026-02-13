@@ -7,6 +7,7 @@ import { ConnectedAccountsPanel } from '@/components/dashboard/ConnectedAccounts
 import { ContentCreationForm } from '@/components/dashboard/ContentCreationForm';
 import { CommentsFeed } from '@/components/dashboard/CommentsFeed';
 import { RecentPostsList } from '@/components/dashboard/RecentPostsList';
+import { ContentCalendar } from '@/components/dashboard/ContentCalendar';
 
 export function CommandCenter() {
   const { isAuthenticated } = useApp();
@@ -24,6 +25,8 @@ export function CommandCenter() {
         return <ConnectedAccountsPanel />;
       case 'create':
         return <ContentCreationForm />;
+      case 'calendar':
+        return <ContentCalendar />;
       case 'comments':
         return <CommentsFeed />;
       case 'posts':

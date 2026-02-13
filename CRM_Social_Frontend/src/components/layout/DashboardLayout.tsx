@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Zap, LayoutDashboard, Link2, PenSquare, MessageSquare, FileText, LogOut } from 'lucide-react';
+import { Zap, LayoutDashboard, Link2, PenSquare, MessageSquare, FileText, CalendarDays, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ const navItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'accounts', label: 'Accounts', icon: Link2 },
   { id: 'create', label: 'Create Post', icon: PenSquare },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'comments', label: 'Comments', icon: MessageSquare },
   { id: 'posts', label: 'Recent Posts', icon: FileText },
 ];

@@ -24,6 +24,7 @@ import type {
 } from "@/types/social";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
+import { PostTemplates } from "@/components/dashboard/PostTemplates";
 
 const MAX_CHARS = 2200; // Instagram max, Facebook allows more
 
@@ -388,7 +389,7 @@ export function ContentCreationForm() {
           </Card>
         </div>
 
-        {/* Account Selection */}
+        {/* Right Sidebar: Account Selection + Templates */}
         <div className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -460,6 +461,12 @@ export function ContentCreationForm() {
               )}
             </CardContent>
           </Card>
+
+          {/* Post Templates */}
+          <PostTemplates
+            currentContent={content}
+            onUseTemplate={(templateContent) => setContent(templateContent)}
+          />
 
           {/* Publish Button */}
           <Button

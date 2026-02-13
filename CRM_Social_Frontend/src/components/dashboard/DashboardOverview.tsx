@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/context/AppContext';
-import { Link2, FileText, MessageSquare, TrendingUp, Activity, Heart, Share2, RefreshCw, Loader2 } from 'lucide-react';
+import { Link2, FileText, MessageSquare, TrendingUp, Activity, Heart, Share2, RefreshCw, Loader2, Send, UserPlus, AlertCircle } from 'lucide-react';
 import { PlatformIcon, platformGlowColors } from '@/components/shared/PlatformIcon';
+import { formatRelativeTime } from '@/lib/formatters';
 import type { Platform } from '@/types/social';
 
 interface MetricCardProps {
@@ -57,12 +58,77 @@ export function DashboardOverview() {
     setIsRefreshing(false);
   };
 
-  const recentActivity = [
-    { action: 'Post published', platform: 'facebook' as Platform, time: '2h ago' },
-    { action: 'New comment', platform: 'instagram' as Platform, time: '3h ago' },
-    { action: 'Account connected', platform: 'linkedin' as Platform, time: '1d ago' },
-    { action: 'Post published', platform: 'instagram' as Platform, time: '1d ago' },
-  ];
+  const recentActivity = useMemo(() => {
+    const activities: { action: string; detail?: string; platform: Platform; time: Date; type: 'post' | 'comment' | 'account' | 'failed' }[] = [];
+
+    // Add post activities
+    posts.forEach(post => {
+      post.platforms.forEach(platform => {
+        const status = post.status[platform];
+        if (status === 'success') {
+          activities.push({
+            action: 'Post published',
+            detail: post.content.length > 50 ? post.content.slice(0, 50) + '...' : post.content,
+            platform,
+            time: post.createdAt,
+            type: 'post',
+          });
+        } else if (status === 'failed') {
+          activities.push({
+            action: 'Post failed',
+            detail: post.content.length > 50 ? post.content.slice(0, 50) + '...' : post.content,
+            platform,
+            time: post.createdAt,
+            type: 'failed',
+          });
+        }
+      });
+    });
+
+    // Add comment activities
+    comments.forEach(comment => {
+      activities.push({
+        action: `Comment from ${comment.commenterName}`,
+        detail: comment.text.length > 50 ? comment.text.slice(0, 50) + '...' : comment.text,
+        platform: comment.platform,
+        time: comment.createdAt,
+        type: 'comment',
+      });
+    });
+
+    // Add connected account activities
+    connectedAccounts.filter(a => a.isConnected && a.lastActivity).forEach(account => {
+      activities.push({
+        action: `${account.accountName} connected`,
+        platform: account.platform,
+        time: account.lastActivity!,
+        type: 'account',
+      });
+    });
+
+    // Sort by time, most recent first
+    return activities.sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 10);
+  }, [posts, comments, connectedAccounts]);
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'post': return <Send className="w-4 h-4 text-green-400" />;
+      case 'comment': return <MessageSquare className="w-4 h-4 text-cyan-400" />;
+      case 'account': return <UserPlus className="w-4 h-4 text-blue-400" />;
+      case 'failed': return <AlertCircle className="w-4 h-4 text-red-400" />;
+      default: return <Activity className="w-4 h-4 text-slate-400" />;
+    }
+  };
+
+  const getActivityDot = (type: string) => {
+    switch (type) {
+      case 'post': return 'bg-green-400';
+      case 'comment': return 'bg-cyan-400';
+      case 'account': return 'bg-blue-400';
+      case 'failed': return 'bg-red-400';
+      default: return 'bg-slate-600';
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -172,21 +238,33 @@ export function DashboardOverview() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentActivity.map((activity, index) => (
-              <div 
-                key={index} 
-                className="flex items-center gap-4 p-3 rounded-lg bg-slate-800/20 hover:bg-slate-800/40 transition-colors"
-              >
-                <div className="p-2 rounded-lg bg-slate-800/50">
-                  <PlatformIcon platform={activity.platform} size={18} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{activity.action}</p>
-                  <p className="text-xs text-slate-500">{activity.time}</p>
-                </div>
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+            {recentActivity.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">
+                No activity yet. Create a post to get started.
               </div>
-            ))}
+            ) : (
+              recentActivity.map((activity, index) => (
+                <div 
+                  key={index} 
+                  className="flex items-center gap-4 p-3 rounded-lg bg-slate-800/20 hover:bg-slate-800/40 transition-colors"
+                >
+                  <div className="p-2 rounded-lg bg-slate-800/50">
+                    <PlatformIcon platform={activity.platform} size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {getActivityIcon(activity.type)}
+                      <p className="text-sm font-medium text-white">{activity.action}</p>
+                    </div>
+                    {activity.detail && (
+                      <p className="text-xs text-slate-500 truncate mt-0.5">{activity.detail}</p>
+                    )}
+                    <p className="text-xs text-slate-600 mt-0.5">{formatRelativeTime(activity.time)}</p>
+                  </div>
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${getActivityDot(activity.type)}`} />
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
